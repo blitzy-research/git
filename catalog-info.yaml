@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: blitzy-git
+  description: the Git Source Code Mirror - This is a publish-only repository but
+    pull requests can be turned into patches to the mailing list via GitGitGadget
+    (https://gitgitgadget.github.io/). Please follow Documentation/SubmittingPatches
+    procedure for any of your improvements.
+  tags:
+  - c
+  annotations:
+    github.com/project-slug: Blitzy-Sandbox/blitzy-git
+    backstage.io/source-location: url:https://github.com/Blitzy-Sandbox/blitzy-git/tree/master/
+    backstage.io/techdocs-ref: dir:.
+  labels:
+    blitzy.com/language: c
+spec:
+  type: service
+  lifecycle: production
+  owner: blitzy-sandbox
+  system: blitzy-c-cpp
