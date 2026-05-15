@@ -1,0 +1,8 @@
+site_name: Git
+site_description: Fast, scalable, distributed revision control system
+docs_dir: docs
+nav:
+  - Overview: index.md
+  - Installation: setup.md
+plugins:
+  - techdocs-core
