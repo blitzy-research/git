@@ -1235,6 +1235,7 @@ static void cherry_pick_against_merge_bases(struct commit_list *list,
 	struct patch_ids ids;
 	unsigned cherry_flag;
 	unsigned int i;
+	int candidates = 0;
 
 	for (i = 0; i < revs->cmdline.nr; i++) {
 		struct rev_cmdline_entry *e = revs->cmdline.rev + i;
@@ -1257,7 +1258,19 @@ static void cherry_pick_against_merge_bases(struct commit_list *list,
 	ids.diffopts.pathspec = revs->diffopt.pathspec;
 	for (p = bases; p; p = p->next) {
 		p->item->object.flags &= ~TMP_MARK;
-		add_commit_patch_id(p->item, &ids);
+		if (add_commit_patch_id(p->item, &ids))
+			candidates++;
+	}
+	/*
+	 * A commit whose patch id is not defined is not added to the set,
+	 * so we may have nothing to compare against.  Probing the list
+	 * would then compute a patch id for each of its commits only to
+	 * look it up in an empty set, which cannot match anything.
+	 */
+	if (!candidates) {
+		free_patch_ids(&ids);
+		free_commit_list(bases);
+		return;
 	}
 
 	/* either cherry_mark or cherry_pick are true */
