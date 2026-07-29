@@ -1244,7 +1244,7 @@ static void cherry_pick_against_merge_bases(struct commit_list *list,
 		    e->item->type != OBJ_COMMIT)
 			continue;
 		base = (struct commit *)e->item;
-		/* the same base can be recorded twice, e.g. as REV_CMD_LEFT */
+		/* a base shared by two range arguments is recorded twice */
 		if (base->object.flags & TMP_MARK)
 			continue;
 		base->object.flags |= TMP_MARK;
@@ -1269,9 +1269,9 @@ static void cherry_pick_against_merge_bases(struct commit_list *list,
 		/*
 		 * Every commit still in the list belongs to the non-empty
 		 * side, so no side filtering is needed here.  Mark only the
-		 * commit that is shown: the merge bases are never part of the
-		 * output, and setting SHOWN on them would drop them from
-		 * --boundary output (see create_boundary_commit_list()).
+		 * commit taken from the list: a merge base can still appear
+		 * in --boundary output, and setting SHOWN on it would drop
+		 * it from there (see create_boundary_commit_list()).
 		 */
 		if (patch_id_iter_first(commit, &ids))
 			commit->object.flags |= cherry_flag;
@@ -1306,7 +1306,7 @@ static void cherry_pick_list(struct commit_list *list, struct rev_info *revs)
 
 	/*
 	 * If one side is empty there is no pair to compare within the list
-	 * itself, but the excluded merge bases still describe that side.
+	 * itself, so fall back to any merge bases excluded from the walk.
 	 */
 	if (!left_count || !right_count) {
 		cherry_pick_against_merge_bases(list, revs);
