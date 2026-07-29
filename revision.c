@@ -1218,6 +1218,69 @@ static int process_parents(struct rev_info *revs, struct commit *commit,
 	return 0;
 }
 
+/*
+ * One side of a symmetric difference can come out empty even though the
+ * user named a commit for it: handle_dotdot_1() excludes the merge bases
+ * of "A...B" from the walk, and when one endpoint is an ancestor of the
+ * other the merge base *is* that endpoint, so limit_list() drops it as
+ * UNINTERESTING.  Fall back to the merge bases recorded on the command
+ * line so that patch equivalence does not depend on how an equivalent
+ * range endpoint was spelled.  Only the three-dot form records
+ * REV_CMD_MERGE_BASE entries, so "A..B" keeps its historical no-op.
+ */
+static void cherry_pick_against_merge_bases(struct commit_list *list,
+					    struct rev_info *revs)
+{
+	struct commit_list *p, *bases = NULL;
+	struct patch_ids ids;
+	unsigned cherry_flag;
+	unsigned int i;
+
+	for (i = 0; i < revs->cmdline.nr; i++) {
+		struct rev_cmdline_entry *e = revs->cmdline.rev + i;
+		struct commit *base;
+
+		if (e->whence != REV_CMD_MERGE_BASE ||
+		    e->item->type != OBJ_COMMIT)
+			continue;
+		base = (struct commit *)e->item;
+		/* the same base can be recorded twice, e.g. as REV_CMD_LEFT */
+		if (base->object.flags & TMP_MARK)
+			continue;
+		base->object.flags |= TMP_MARK;
+		commit_list_insert(base, &bases);
+	}
+	if (!bases)
+		return;
+
+	init_patch_ids(revs->repo, &ids);
+	ids.diffopts.pathspec = revs->diffopt.pathspec;
+	for (p = bases; p; p = p->next) {
+		p->item->object.flags &= ~TMP_MARK;
+		add_commit_patch_id(p->item, &ids);
+	}
+
+	/* either cherry_mark or cherry_pick are true */
+	cherry_flag = revs->cherry_mark ? PATCHSAME : SHOWN;
+
+	for (p = list; p; p = p->next) {
+		struct commit *commit = p->item;
+
+		/*
+		 * Every commit still in the list belongs to the non-empty
+		 * side, so no side filtering is needed here.  Mark only the
+		 * commit that is shown: the merge bases are never part of the
+		 * output, and setting SHOWN on them would drop them from
+		 * --boundary output (see create_boundary_commit_list()).
+		 */
+		if (patch_id_iter_first(commit, &ids))
+			commit->object.flags |= cherry_flag;
+	}
+
+	free_patch_ids(&ids);
+	free_commit_list(bases);
+}
+
 static void cherry_pick_list(struct commit_list *list, struct rev_info *revs)
 {
 	struct commit_list *p;
@@ -1238,8 +1301,17 @@ static void cherry_pick_list(struct commit_list *list, struct rev_info *revs)
 			right_count++;
 	}
 
-	if (!left_count || !right_count)
+	if (!left_count && !right_count)
 		return;
+
+	/*
+	 * If one side is empty there is no pair to compare within the list
+	 * itself, but the excluded merge bases still describe that side.
+	 */
+	if (!left_count || !right_count) {
+		cherry_pick_against_merge_bases(list, revs);
+		return;
+	}
 
 	left_first = left_count < right_count;
 	init_patch_ids(revs->repo, &ids);
