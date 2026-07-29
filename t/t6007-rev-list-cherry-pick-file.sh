@@ -281,4 +281,73 @@ test_expect_success '--cherry-pick avoids looking at full diffs' '
 	git rev-list --cherry-pick ...shy-diff
 '
 
+# Whether a commit is patch-equivalent to a commit on the other side must
+# not depend on how an equivalent range endpoint is spelled.  In the
+# topology below "eq" is a cherry-pick of "mrg^2", and "mrg" is a merge
+# whose first parent is "eq", so "eq" is the merge base of "eq...mrg" and
+# gets excluded from the walk -- yet "mrg^2" is still patch-equivalent to
+# it, exactly as it is in the "eq...mrg^2" spelling of the same endpoint.
+
+test_expect_success 'setup merge base equal to one endpoint' '
+	git switch --orphan eq-base &&
+	test_commit eq-root &&
+	test_commit eq-change &&
+	git switch -c eq-other eq-root &&
+	test_tick &&
+	git cherry-pick eq-base &&
+	git tag eq &&
+	test_tick &&
+	git merge --no-ff -m mrg eq-base &&
+	git tag mrg &&
+	test_cmp_rev eq mrg^1 &&
+	test_cmp_rev eq-change mrg^2 &&
+	test_cmp_rev eq $(git merge-base eq mrg)
+'
+
+cat >expect <<EOF
++tags/mrg
+=tags/eq-change
+EOF
+
+test_expect_success '--cherry-mark --right-only with merge base as endpoint' '
+	git rev-list --cherry-mark --right-only eq...mrg >actual &&
+	git name-rev --annotate-stdin --name-only --refs="*tags/*" \
+		<actual >actual.named &&
+	test_cmp expect actual.named
+'
+
+cat >expect <<EOF
+=tags/eq-change
+EOF
+
+test_expect_success '--cherry-mark --right-only is spelling independent' '
+	git rev-list --cherry-mark --right-only eq...mrg^2 >actual &&
+	git name-rev --annotate-stdin --name-only --refs="*tags/*" \
+		<actual >actual.named &&
+	test_cmp expect actual.named
+'
+
+test_expect_success '--cherry-pick omits the equivalent commit either way' '
+	git rev-list --cherry-pick --right-only --no-merges eq...mrg >actual &&
+	test_must_be_empty actual &&
+	git rev-list --cherry-pick --right-only --no-merges eq...mrg^2 >actual &&
+	test_must_be_empty actual
+'
+
+test_expect_success '--cherry-mark --left-only is symmetric' '
+	printf "%s\n" "+tags/mrg" "=tags/eq-change" >expect &&
+	git rev-list --cherry-mark --left-only mrg...eq >actual &&
+	git name-rev --annotate-stdin --name-only --refs="*tags/*" \
+		<actual >actual.named &&
+	test_cmp expect actual.named
+'
+
+test_expect_success 'two-dot range still ignores cherry options' '
+	printf "%s\n" "+tags/mrg" "+tags/eq-change" >expect &&
+	git rev-list --cherry-mark eq..mrg >actual &&
+	git name-rev --annotate-stdin --name-only --refs="*tags/*" \
+		<actual >actual.named &&
+	test_cmp expect actual.named
+'
+
 test_done
