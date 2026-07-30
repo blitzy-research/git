@@ -1223,10 +1223,10 @@ static int process_parents(struct rev_info *revs, struct commit *commit,
  * user named a commit for it: handle_dotdot_1() excludes the merge bases
  * of "A...B" from the walk, and when one endpoint is an ancestor of the
  * other the merge base *is* that endpoint, so limit_list() drops it as
- * UNINTERESTING.  Fall back to the merge bases recorded on the command
- * line so that patch equivalence does not depend on how an equivalent
- * range endpoint was spelled.  Only the three-dot form records
- * REV_CMD_MERGE_BASE entries, so "A..B" keeps its historical no-op.
+ * UNINTERESTING.  Compare the surviving side with merge bases recorded on
+ * the command line so that a commit reached through an endpoint is treated
+ * the same as when it is named directly.  A standalone "A..B" range records
+ * no REV_CMD_MERGE_BASE entries, so this fallback is a no-op.
  */
 static void cherry_pick_against_merge_bases(struct commit_list *list,
 					    struct rev_info *revs)

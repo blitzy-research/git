@@ -281,12 +281,12 @@ test_expect_success '--cherry-pick avoids looking at full diffs' '
 	git rev-list --cherry-pick ...shy-diff
 '
 
-# Whether a commit is patch-equivalent to a commit on the other side must
-# not depend on how an equivalent range endpoint is spelled.  In the
-# topology below "eq" is a cherry-pick of "mrg^2", and "mrg" is a merge
-# whose first parent is "eq", so "eq" is the merge base of "eq...mrg" and
-# gets excluded from the walk -- yet "mrg^2" is still patch-equivalent to
-# it, exactly as it is in the "eq...mrg^2" spelling of the same endpoint.
+# Whether a reachable commit is patch-equivalent to a commit on the other
+# side must not depend on whether it is reached through a merge endpoint or
+# named directly.  Here "eq" is a cherry-pick of "mrg^2", and "mrg" is a
+# merge whose first parent is "eq", making "eq" the merge base of
+# "eq...mrg" and excluding it from the walk.  Nevertheless, "mrg^2" must
+# be patch-equivalent to it, just as in the direct "eq...mrg^2" range.
 
 test_expect_success 'setup merge base equal to one endpoint' '
 	git switch --orphan eq-base &&
